@@ -16,7 +16,23 @@ impl GameState {
             }
         });
     }
+
+    fn run_systems(&self) {
+        self.ecs.run(left_mover_sys);
+    }
 }
+
+// Utility structs for Unique Resources
+struct ScreenDims {
+    w: f32,
+    h: f32,
+}
+
+// struct PlayerMovement {
+//     delta_x: f32,
+//     delta_y: f32,
+// }
+
 
 // Components
 #[derive(Debug)]
@@ -31,15 +47,17 @@ struct Renderable {
 }
 
 // Tag component
-struct Player;
+struct PlayerTag {}
 
 struct LeftMoverTag {}
 
 
 #[macroquad::main("GI")]
 async fn main() {
-    let scr_width = mq::screen_width();
-    let scr_height = mq::screen_height();
+    let scr_dims =  ScreenDims {
+        w: mq::screen_width(),
+        h: mq::screen_height(),
+    };
 
     // Create global state/world
     let gs = GameState {
@@ -47,14 +65,10 @@ async fn main() {
     };
 
     // Add screen width as unique
-    gs.ecs.add_unique(scr_width);
+    gs.ecs.add_unique(scr_dims);
 
     // Add a player entity
-    gs.ecs.run(|mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut players: ViewMut<Player>| {
-        entities.add_entity(
-            (&mut positions, &mut renders, &mut players),
-            (Position {x: scr_width / 2.0, y: scr_height / 2.0}, Renderable { color: mq::YELLOW }, Player {} ))
-    });
+    gs.ecs.run(add_player);
 
     // Add LeftMover type entities
     gs.ecs.run(add_left_movers);
@@ -74,7 +88,12 @@ async fn main() {
         }
 
         // UPDATE
-        gs.ecs.run(left_mover_sys);
+        // INPUT
+        player_input(&gs.ecs);
+
+        // Update ECS
+        gs.run_systems();
+
 
         // RENDERING
         // Clear the BG
@@ -94,15 +113,41 @@ async fn main() {
 }
 
 // Systems
-fn left_mover_sys(scr_width: UniqueView<f32>, mut positions: ViewMut<Position>, left_movers: View<LeftMoverTag>) {
+fn left_mover_sys(scr_dims: UniqueView<ScreenDims>, mut positions: ViewMut<Position>, left_movers: View<LeftMoverTag>) {
     for (pos, _) in (&mut positions, &left_movers).iter() {
         pos.x += 2.0;
-        if pos.x > *scr_width {
+        if pos.x > scr_dims.w {
             pos.x = 0.0;
         }
     }
 }
 
+/// Try to update player position with incoming delta values
+fn try_move_player(delta_x: f32, delta_y: f32, ecs: &World) {
+    let (scr_dims, mut positions, players) = ecs.borrow::<(UniqueView<ScreenDims>, ViewMut<Position>, View<PlayerTag>)>();
+
+    for (pos, _player) in (&mut positions, &players).iter() {
+        // pos.x = min(scr_dims.w, max(0.0, pos.x + delta_x));
+        // pos.y = min(scr_dims.h, max(0.0, pos.y + delta_y));
+        pos.x = scr_dims.w.min(0.0f32.max(pos.x + delta_x));
+        pos.y = scr_dims.h.min(0.0f32.max(pos.y + delta_y));
+    }
+}
+
+fn player_input(ecs: &World) {
+    if mq::is_key_down(mq::KeyCode::Left) {
+        try_move_player(-1.0, 0.0, ecs);
+    } 
+    if mq::is_key_down(mq::KeyCode::Right) {
+        try_move_player(1.0, 0.0, ecs);
+    }
+    if mq::is_key_down(mq::KeyCode::Up) {
+        try_move_player(0.0, -1.0, ecs);
+    }
+    if mq::is_key_down(mq::KeyCode::Down) {
+        try_move_player(0.0, 1.0, ecs);
+    }
+}
 
 // Utils
 fn add_left_movers(mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut left_movers: ViewMut<LeftMoverTag>) {
@@ -116,4 +161,11 @@ fn add_left_movers(mut entities: EntitiesViewMut, mut positions: ViewMut<Positio
                 LeftMoverTag {}
             ));
     }
+}
+
+fn add_player(scr_dims: UniqueView<ScreenDims>, mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut players: ViewMut<PlayerTag>) {
+        entities.add_entity(
+            (&mut positions, &mut renders, &mut players),
+            (Position {x: scr_dims.w / 2.0, y: scr_dims.h / 2.0}, Renderable { color: mq::YELLOW }, PlayerTag {} )
+        );
 }
