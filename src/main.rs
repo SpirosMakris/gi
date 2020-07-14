@@ -33,7 +33,7 @@ struct Renderable {
 // Tag component
 struct Player;
 
-
+struct LeftMoverTag {}
 
 
 #[macroquad::main("GI")]
@@ -46,13 +46,20 @@ async fn main() {
         ecs: World::new(),
     };
 
-    // Add an entity
+    // Add screen width as unique
+    gs.ecs.add_unique(scr_width);
+
+    // Add a player entity
     gs.ecs.run(|mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut players: ViewMut<Player>| {
         entities.add_entity(
             (&mut positions, &mut renders, &mut players),
-            (Position {x: scr_width / 2.0, y: scr_height / 2.0}, Renderable { color: mq::RED }, Player {} ))
+            (Position {x: scr_width / 2.0, y: scr_height / 2.0}, Renderable { color: mq::YELLOW }, Player {} ))
     });
 
+    // Add LeftMover type entities
+    gs.ecs.run(add_left_movers);
+
+    
     // frame counter
     let mut frame_counter: u32 = 0;
 
@@ -65,6 +72,9 @@ async fn main() {
                 }
             });
         }
+
+        // UPDATE
+        gs.ecs.run(left_mover_sys);
 
         // RENDERING
         // Clear the BG
@@ -80,5 +90,30 @@ async fn main() {
         frame_counter += 1;
 
         mq::next_frame().await
+    }
+}
+
+// Systems
+fn left_mover_sys(scr_width: UniqueView<f32>, mut positions: ViewMut<Position>, left_movers: View<LeftMoverTag>) {
+    for (pos, _) in (&mut positions, &left_movers).iter() {
+        pos.x += 2.0;
+        if pos.x > *scr_width {
+            pos.x = 0.0;
+        }
+    }
+}
+
+
+// Utils
+fn add_left_movers(mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut left_movers: ViewMut<LeftMoverTag>) {
+    
+    for i in 0..10 {
+        entities.add_entity(
+            (&mut positions, &mut renders, &mut left_movers),
+            (
+                Position { x: i as f32 * 40.0, y: 20.0 },
+                Renderable { color: mq::RED },
+                LeftMoverTag {}
+            ));
     }
 }
