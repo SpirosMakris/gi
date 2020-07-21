@@ -1,6 +1,12 @@
 use macroquad as mq;
 use shipyard::*;
 
+use bracket_random;
+
+mod map;
+
+
+
 
 struct GameState {
     ecs: World,
@@ -8,6 +14,10 @@ struct GameState {
 
 impl GameState {
     fn render(&self) {
+        // @TODO: Draw map
+        let map = self.ecs.borrow::<UniqueView<Vec<map::TileType>>>();
+        map::render_map(&*map);
+        
         // Draw renderables system
         self.ecs.run(|positions: View<Position>, renders: View<Renderable>| {
             for (pos, rend ) in (&positions, &renders).iter() {
@@ -67,6 +77,9 @@ async fn main() {
     // Add screen width as unique
     gs.ecs.add_unique(scr_dims);
 
+    // Add map as unique
+    gs.ecs.add_unique(map::new_map());
+
     // Add a player entity
     gs.ecs.run(add_player);
 
@@ -79,13 +92,13 @@ async fn main() {
 
     loop {
         // Print all positional entities
-        if frame_counter % 120 == 0 {
-            gs.ecs.run(|positions: View<Position>| {
-                for (id, i) in positions.iter().with_id() {
-                    println!("Entity # {:?} has id {:?}", i, id);
-                }
-            });
-        }
+        // if frame_counter % 120 == 0 {
+        //     gs.ecs.run(|positions: View<Position>| {
+        //         for (id, i) in positions.iter().with_id() {
+        //             println!("Entity # {:?} has id {:?}", i, id);
+        //         }
+        //     });
+        // }
 
         // UPDATE
         // INPUT
@@ -124,13 +137,27 @@ fn left_mover_sys(scr_dims: UniqueView<ScreenDims>, mut positions: ViewMut<Posit
 
 /// Try to update player position with incoming delta values
 fn try_move_player(delta_x: f32, delta_y: f32, ecs: &World) {
-    let (scr_dims, mut positions, players) = ecs.borrow::<(UniqueView<ScreenDims>, ViewMut<Position>, View<PlayerTag>)>();
+    let (map, scr_dims, mut positions, players) = 
+        ecs.borrow::<(UniqueView<Vec<map::TileType>>, UniqueView<ScreenDims>, ViewMut<Position>, View<PlayerTag>)>();
+        
 
     for (pos, _player) in (&mut positions, &players).iter() {
-        // pos.x = min(scr_dims.w, max(0.0, pos.x + delta_x));
-        // pos.y = min(scr_dims.h, max(0.0, pos.y + delta_y));
-        pos.x = scr_dims.w.min(0.0f32.max(pos.x + delta_x));
-        pos.y = scr_dims.h.min(0.0f32.max(pos.y + delta_y));
+        // Very naive 'collision detection'
+        // Convert world to tile coords
+        let (tx, ty) = map::world_xy(pos.x + delta_x, pos.y + delta_y);
+        let dest_idx = map::xy_idx(tx, ty);
+
+        // println!("(x,y)= ({},{}) => ({},{})", pos.x, pos.y, tx, ty);
+        println!("wx = {} =>  tx = {}", pos.x, tx);
+
+        if map[dest_idx] != map::TileType::Wall {
+            pos.x = scr_dims.w.min(0.0f32.max(pos.x + delta_x));
+            pos.y = scr_dims.h.min(0.0f32.max(pos.y + delta_y));
+        } else {
+            println!("Hit wall at (tx, ty) = {}/{}", tx, ty);
+            // panic!();
+        }
+        
     }
 }
 

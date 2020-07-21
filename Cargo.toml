@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 macroquad = "0.2.8"
 shipyard = "0.4.1"
+
+bracket-random = "0.7.0"
