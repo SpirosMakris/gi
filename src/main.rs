@@ -4,8 +4,9 @@ use shipyard::*;
 use bracket_random;
 
 mod map;
-
-
+pub use map::*;
+mod trect;
+pub use trect::TRect;
 
 
 struct GameState {
@@ -15,8 +16,8 @@ struct GameState {
 impl GameState {
     fn render(&self) {
         // @TODO: Draw map
-        let map = self.ecs.borrow::<UniqueView<Vec<map::TileType>>>();
-        map::render_map(&*map);
+        let map = self.ecs.borrow::<UniqueView<Vec<TileType>>>();
+        render_map(&*map);
         
         // Draw renderables system
         self.ecs.run(|positions: View<Position>, renders: View<Renderable>| {
@@ -78,7 +79,7 @@ async fn main() {
     gs.ecs.add_unique(scr_dims);
 
     // Add map as unique
-    gs.ecs.add_unique(map::new_map());
+    gs.ecs.add_unique(new_map_rooms_and_corridors());
 
     // Add a player entity
     gs.ecs.run(add_player);
@@ -138,19 +139,19 @@ fn left_mover_sys(scr_dims: UniqueView<ScreenDims>, mut positions: ViewMut<Posit
 /// Try to update player position with incoming delta values
 fn try_move_player(delta_x: f32, delta_y: f32, ecs: &World) {
     let (map, scr_dims, mut positions, players) = 
-        ecs.borrow::<(UniqueView<Vec<map::TileType>>, UniqueView<ScreenDims>, ViewMut<Position>, View<PlayerTag>)>();
+        ecs.borrow::<(UniqueView<Vec<TileType>>, UniqueView<ScreenDims>, ViewMut<Position>, View<PlayerTag>)>();
         
 
     for (pos, _player) in (&mut positions, &players).iter() {
         // Very naive 'collision detection'
         // Convert world to tile coords
-        let (tx, ty) = map::world_xy(pos.x + delta_x, pos.y + delta_y);
-        let dest_idx = map::xy_idx(tx, ty);
+        let (tx, ty) =  world_xy(pos.x + delta_x, pos.y + delta_y);
+        let dest_idx = xy_idx(tx, ty);
 
         // println!("(x,y)= ({},{}) => ({},{})", pos.x, pos.y, tx, ty);
         println!("wx = {} =>  tx = {}", pos.x, tx);
 
-        if map[dest_idx] != map::TileType::Wall {
+        if map[dest_idx] != TileType::Wall {
             pos.x = scr_dims.w.min(0.0f32.max(pos.x + delta_x));
             pos.y = scr_dims.h.min(0.0f32.max(pos.y + delta_y));
         } else {

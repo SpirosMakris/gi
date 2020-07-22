@@ -1,7 +1,10 @@
 use crate::bracket_random::prelude::*;
 use crate::mq;
+use crate::TRect;
 
-#[derive(PartialEq, Copy, Clone)]
+use std::cmp::{min, max};
+
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum TileType {
     Wall,
     Floor,
@@ -19,7 +22,9 @@ pub fn world_xy(x: f32, y: f32) -> (i32, i32) {
     (x.div_euclid(16.0) as i32, y.div_euclid(16.0) as i32)
 }
 
-pub fn new_map() -> Vec<TileType> {
+/// Makes a map with solid boundaries and 400 randomly placed walls.
+/// No guarantees that it won't look awful.
+pub fn new_map_test() -> Vec<TileType> {
     let mut map = vec![TileType::Floor; 80*50];
 
     // Make the boundaries walls
@@ -44,6 +49,29 @@ pub fn new_map() -> Vec<TileType> {
             map[idx] = TileType::Wall;
         }
     }
+
+    map
+}
+
+fn apply_room_to_map(room: &TRect, map: &mut [TileType]) {
+    println!("Appying room:{:?} to map", room);
+    for y in room.y1 + 1 ..= room.y2 {
+        for x in room.x1 + 1 ..= room.x2 {
+            map[xy_idx(x, y)] = TileType::Floor;            
+        }
+    }
+}
+
+/// Makes a new map using the algorithm from http://rogueliketutorials.com/tutorials/tcod/part-3/
+/// This gives a handful of random rooms and corridors joining them together
+pub fn new_map_rooms_and_corridors() -> Vec<TileType> {
+    let mut map = vec![TileType::Wall; 80*50];
+
+    let room1 = TRect::new(20, 15, 10, 15);
+    let room2 = TRect::new(35, 15, 10, 15);
+    
+    apply_room_to_map(&room1, &mut map);
+    apply_room_to_map(&room2, &mut map);
 
     map
 }
