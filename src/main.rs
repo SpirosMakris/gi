@@ -39,10 +39,10 @@ struct ScreenDims {
     h: f32,
 }
 
-// struct PlayerMovement {
-//     delta_x: f32,
-//     delta_y: f32,
-// }
+struct PlayerPos {
+    x: i32,
+    y: i32,
+}
 
 
 // Components
@@ -78,8 +78,19 @@ async fn main() {
     // Add screen width as unique
     gs.ecs.add_unique(scr_dims);
 
+    // Create rooms and map
+    let (rooms, map) = new_map_rooms_and_corridors();
+    
     // Add map as unique
-    gs.ecs.add_unique(new_map_rooms_and_corridors());
+    gs.ecs.add_unique(map);
+
+    // Add player position as unique
+    let (player_x, player_y) = rooms[0].center();
+
+    gs.ecs.add_unique(PlayerPos {
+        x: player_x,
+        y: player_y
+    });
 
     // Add a player entity
     gs.ecs.run(add_player);
@@ -149,14 +160,13 @@ fn try_move_player(delta_x: f32, delta_y: f32, ecs: &World) {
         let dest_idx = xy_idx(tx, ty);
 
         // println!("(x,y)= ({},{}) => ({},{})", pos.x, pos.y, tx, ty);
-        println!("wx = {} =>  tx = {}", pos.x, tx);
+        // println!("wx = {} =>  tx = {}", pos.x, tx);
 
         if map[dest_idx] != TileType::Wall {
             pos.x = scr_dims.w.min(0.0f32.max(pos.x + delta_x));
             pos.y = scr_dims.h.min(0.0f32.max(pos.y + delta_y));
         } else {
             println!("Hit wall at (tx, ty) = {}/{}", tx, ty);
-            // panic!();
         }
         
     }
@@ -191,9 +201,9 @@ fn add_left_movers(mut entities: EntitiesViewMut, mut positions: ViewMut<Positio
     }
 }
 
-fn add_player(scr_dims: UniqueView<ScreenDims>, mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut players: ViewMut<PlayerTag>) {
+fn add_player(player_start: UniqueView<PlayerPos>, scr_dims: UniqueView<ScreenDims>, mut entities: EntitiesViewMut, mut positions: ViewMut<Position>, mut renders: ViewMut<Renderable>, mut players: ViewMut<PlayerTag>) {
         entities.add_entity(
             (&mut positions, &mut renders, &mut players),
-            (Position {x: scr_dims.w / 2.0, y: scr_dims.h / 2.0}, Renderable { color: mq::YELLOW }, PlayerTag {} )
+            (Position {x: player_start.x as f32 * 16.0, y: player_start.y as f32 * 16.0}, Renderable { color: mq::YELLOW }, PlayerTag {} )
         );
 }

@@ -17,7 +17,7 @@ impl TRect {
     }
 
     /// Returns true if this TRect overlaps with another
-    pub fn intersect(&self, other: &TRect) -> bool {
+    pub fn intersects(&self, other: &TRect) -> bool {
         self.x1 <= other.x2 &&
         self.x2 >= other.x1 &&
         self.y1 <= other.y2 &&
